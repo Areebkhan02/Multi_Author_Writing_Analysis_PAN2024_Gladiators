@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # import all the important libraries 
 import transformers
 from transformers import RobertaTokenizer
@@ -6,12 +7,12 @@ from torch import cuda
 from torch.utils.data import Dataset, DataLoader, WeightedRandomSampler
 import numpy as np
 import pandas as pd
-from sklearn import metrics
 import os
 import re
 import json
 import argparse
 from tqdm import tqdm
+from glob import glob
 
 # import all the classes 
 
@@ -208,24 +209,28 @@ def run_solution(problems_folder, output_folder, tokenizer, model):
     os.makedirs(output_folder, exist_ok=True)
     print(f'Write outputs to {output_folder}.')
 
-    for file in tqdm(os.listdir(problems_folder)):
-        if file.startswith('problem-') and file.endswith('.txt'):
-            problem_id = file.split('.')[0].split('-')[1]
-            text_file_path = os.path.join(problems_folder, file)
-            #json_file_path = os.path.join(problems_folder, f'truth-problem-{problem_id}.json')
-            df = create_csv(text_file_path)
-            data_loader = create_dataloader(df, tokenizer, batch_size=16)
-            predictions, _ = predict(model, data_loader)
-            predictions = [item for sublist in predictions for item in sublist]
-            save_predictions_to_json(problem_id, predictions, output_dir=output_folder)
+    # from the baseline: https://github.com/pan-webis-de/pan-code/blob/master/clef24/multi-author-analysis/baselines/baseline-random.py#L25C1-L27C62
+    problem_files = glob(f'{problems_folder}/problem-*.txt') \
+        + glob(f'{problems_folder}/**/problem-*.txt') \
+        + glob(f'{problems_folder}/**/**/problem-*.txt')
+
+    for file in tqdm(problem_files):
+        problem_id = file.split('/problem')[1].split('.')[0].split('-')[1]
+        text_file_path = os.path.join(problems_folder, file)
+        #json_file_path = os.path.join(problems_folder, f'truth-problem-{problem_id}.json')
+        df = create_csv(text_file_path)
+        data_loader = create_dataloader(df, tokenizer, batch_size=16)
+        predictions, _ = predict(model, data_loader)
+        predictions = [item for sublist in predictions for item in sublist]
+        save_predictions_to_json(problem_id, predictions, output_dir=output_folder)
 
 
 if __name__ == '__main__':
     args = parse_args()
     # Here, you should enter the path to your trained models.
-    model_easy = "easy_model.pt"
-    model_medium = "medium_model.pt"
-    model_hard = "hard_model.pt"
+    model_easy = "/models/easy_model.pt"
+    model_medium = "/models/medium_model.pt"
+    model_hard = "/models/hard_model.pt"
 
     
     # Setting the tokenizer to be used
